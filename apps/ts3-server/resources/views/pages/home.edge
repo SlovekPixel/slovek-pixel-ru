@@ -1,0 +1,23 @@
+@layout()
+  <div class="hero">
+    <h1>Home</h1>
+    <p>You are signed in as {{ auth.user.username }}.</p>
+
+    <div class="service-status {{ teamspeak.isActive ? 'is-active' : 'is-inactive' }}">
+      <p>
+        Linux TeamSpeak service:
+        @if(teamspeak.isActive)
+          <strong>is active</strong>
+          @if(teamspeak.version)
+            <span class="service-version">({{ teamspeak.version }})</span>
+          @end
+        @else
+          <strong>inactive</strong>
+        @end
+      </p>
+      <p class="voice-host">
+        Voice server: <code>{{ voiceHost }}</code> (UDP 9987)
+      </p>
+    </div>
+  </div>
+@end

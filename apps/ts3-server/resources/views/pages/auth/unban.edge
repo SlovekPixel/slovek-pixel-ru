@@ -1,0 +1,51 @@
+@layout()
+  <div class="logs-container" x-data="unbanList">
+    <h1>Banned IPs</h1>
+    <p>Select an IP address and confirm to remove the ban.</p>
+
+    @if(bans.length === 0)
+      <p class="logs-empty">No banned IP addresses.</p>
+    @else
+      <table class="logs-table">
+        <thead>
+          <tr>
+            <th>IP</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @each(ban in bans)
+            <tr>
+              <td>{{ ban.ip }}</td>
+              <td class="unban-actions">
+                <button type="button" data-ip="{{ ban.ip }}" @click="ask($el.dataset.ip)">
+                  Unban
+                </button>
+              </td>
+            </tr>
+          @end
+        </tbody>
+      </table>
+    @end
+
+    <div
+      class="confirm-overlay"
+      x-show="pendingIp"
+      x-cloak
+      @keydown.escape.window="cancel()"
+      @click.self="cancel()"
+    >
+      <div class="confirm-dialog" @click.outside="cancel()">
+        <h2>Unban this IP?</h2>
+        <p>Remove <strong x-text="pendingIp"></strong> from the ban list.</p>
+        @form({ route: 'login.unban.destroy', method: 'POST' })
+          <input type="hidden" name="ip" :value="pendingIp" />
+          <div class="confirm-actions">
+            <button type="button" class="button-secondary" @click="cancel()">Cancel</button>
+            @!button({ text: 'Unban', type: 'submit' })
+          </div>
+        @end
+      </div>
+    </div>
+  </div>
+@end

@@ -1,0 +1,17 @@
+# App-local ignores (root .gitignore covers most monorepo paths)
+
+node_modules
+build
+tmp/*
+!tmp/.gitkeep
+
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.test
+
+public/assets
+
+# Keep Adonis generated barrels/types — required for #generated/* and CI builds
+# Do NOT ignore .adonisjs/

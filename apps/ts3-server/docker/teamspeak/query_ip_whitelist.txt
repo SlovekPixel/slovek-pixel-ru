@@ -1,0 +1,8 @@
+# Optional reference: copy into the teamspeak-data volume as query_ip_whitelist.txt
+# if ServerQuery flood protection blocks the Adonis container.
+# Do NOT bind-mount this file read-only — the TeamSpeak entrypoint runs chown on it.
+127.0.0.1
+::1
+10.0.0.0/8
+172.16.0.0/12
+192.168.0.0/16

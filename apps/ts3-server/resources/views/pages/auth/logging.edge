@@ -1,0 +1,33 @@
+@layout()
+  <div class="logs-container">
+    <h1>Login attempts</h1>
+    <p>Entries older than 3 days are removed automatically.</p>
+
+    @if(attempts.length === 0)
+      <p class="logs-empty">No login attempts yet.</p>
+    @else
+      <table class="logs-table">
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>IP</th>
+            <th>Result</th>
+            <th>Created at</th>
+          </tr>
+        </thead>
+        <tbody>
+          @each(attempt in attempts)
+            <tr>
+              <td>{{ attempt.username }}</td>
+              <td>{{ attempt.ip || '—' }}</td>
+              <td class="{{ attempt.success ? 'log-success' : 'log-failed' }}">
+                {{ attempt.success ? 'Successful' : 'Failed' }}
+              </td>
+              <td>{{ attempt.createdAt }}</td>
+            </tr>
+          @end
+        </tbody>
+      </table>
+    @end
+  </div>
+@end

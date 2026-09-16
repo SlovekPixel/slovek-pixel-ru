@@ -1,159 +1,108 @@
-# Turborepo starter
+# slovek-pixel-ru
 
-This Turborepo starter is maintained by the Turborepo core team.
+Монорепозиторий сервисов на [Turborepo](https://turborepo.dev) и [pnpm](https://pnpm.io).
 
-## Using this example
+## Стек
 
-Run the following command:
+- Node.js `>=24`, pnpm `11.25.0`, Turborepo `2.10`
+- AdonisJS `7` (Edge) в приложениях
+- Docker Compose: сервисы + общий **nginx** (HTTPS) + certbot + TeamSpeak 3
 
-```sh
-npx create-turbo@latest
+## Структура
+
+```
+apps/
+  ts3-server/         сайт статуса TS (AdonisJS)
+deploy/
+  nginx/              общий reverse proxy проекта
+  certbot/            Let's Encrypt init / renew
+packages/
+  ...
+docker-compose.yml
 ```
 
-## What's inside?
+## Быстрый старт после клона (production / VPS)
 
-This Turborepo includes the following packages/apps:
+Инструкция есть здесь. Кратко: **DNS + `.env` + `docker compose up`**, затем один раз выпустить сертификат.
 
-### Apps and Packages
+### 1. DNS и firewall (до или сразу после clone)
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `@next/eslint-plugin-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+- `A` (и при наличии `AAAA`) **`ts.slovekpixel.ru` → IP VPS**
+- Открыть: `80/tcp`, `443/tcp`, `9987/udp`, `30033/tcp`
+- Не открывать снаружи: `10011`, `3333`
+- Если на сервере уже крутится старый TeamSpeak из архива — остановите его (конфликт `9987/udp`)
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+### 2. Env
 
 ```sh
-cd my-turborepo
-turbo build
+git clone <repo-url> && cd slovek-pixel-ru
+cp .env.example .env
 ```
 
-Without global `turbo`, use your package manager:
+Обязательно заполните в `.env`:
+
+| Переменная | Пример |
+|------------|--------|
+| `APP_KEY` | `cd apps/ts3-server && node ace generate:key` (нужен локальный Node) или любая длинная случайная строка ≥32 символов |
+| `CERTBOT_EMAIL` | ваш email для Let's Encrypt |
+| `TS3_SERVERADMIN_PASSWORD` | пароль ServerQuery |
+| `TS3_QUERY_PASSWORD` | **тот же**, что `TS3_SERVERADMIN_PASSWORD` |
+| `DOMAIN` / `APP_URL` | по умолчанию `ts.slovekpixel.ru` / `https://ts.slovekpixel.ru` |
+
+Остальное из `.env.example` можно оставить.
+
+### 3. Поднять стек
 
 ```sh
-cd my-turborepo
-npx turbo build
-pnpm exec turbo build
-pnpm exec turbo build
+docker compose up --build -d
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+Поднятся: `web`, `teamspeak`, общий контейнер **`nginx`**.  
+Пока нет Let's Encrypt, nginx использует временный self-signed сертификат (браузер покажет предупреждение).
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+### 4. Настоящий HTTPS (один раз, когда DNS уже указывает на VPS)
 
 ```sh
-turbo build --filter=docs
+chmod +x deploy/certbot/*.sh
+./deploy/certbot/init-certs.sh
 ```
 
-Without global `turbo`:
+Продление позже (cron раз в неделю): `./deploy/certbot/renew.sh`
+
+### 5. Проверка
+
+| Что | Адрес |
+|-----|--------|
+| Сайт | `https://ts.slovekpixel.ru` (логин `admin` / `admin`) |
+| TeamSpeak | сервер `ts.slovekpixel.ru`, порт **9987** |
+| Privilege key | `docker compose logs teamspeak \| grep -i privilege` |
+
+**Итого после клона:** заполнить `.env` и `docker compose up --build -d` достаточно, чтобы сервисы работали. Для доверенного HTTPS без предупреждения браузера нужен ещё шаг 4 (DNS должен уже смотреть на сервер).
+
+> `TS3_SERVERADMIN_PASSWORD` применяется при **первой** инициализации volume. Смена пароля Query: `docker compose down -v` и снова `up` (данные TS удалятся). На Windows сохраняйте `.env` с LF.
+
+## Один домен `ts.slovekpixel.ru`
+
+Сайт и голос на одном имени, разные порты. Nginx **не** проксирует UDP TeamSpeak — только HTTP(S) к приложениям. В `deploy/nginx/conf.d/` позже можно добавить server-блоки для новых сервисов; контейнер nginx общий на весь проект.
+
+## Локальная разработка (без полного стека)
 
 ```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+pnpm install
+docker compose up teamspeak -d
+# apps/ts3-server/.env: TS3_QUERY_HOST=127.0.0.1
+pnpm dev --filter=ts3-server
 ```
 
-### Develop
+Сайт: `http://127.0.0.1:3333`.
 
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+## Команды monorepo
 
 ```sh
-cd my-turborepo
-turbo dev
+pnpm install
+pnpm dev
+pnpm build
+pnpm lint
+pnpm check-types
+pnpm format
 ```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
