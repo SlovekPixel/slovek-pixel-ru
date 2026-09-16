@@ -14,7 +14,8 @@
     "test": "node ace test",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check-types": "tsc --noEmit"
   },
   "imports": {
     "#controllers/*": "./app/presentation/http/controllers/*.js",

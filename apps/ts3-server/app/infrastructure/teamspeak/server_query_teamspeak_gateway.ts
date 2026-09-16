@@ -1,5 +1,12 @@
 import net from 'node:net'
 import type { TeamSpeakGateway, TeamSpeakStatus } from '#domain/teamspeak_gateway'
+import {
+  buildTeamSpeakStatus,
+  escapeServerQueryValue,
+  parseErrorId,
+  parseVersion,
+  type QueryStatusPayload,
+} from '#infrastructure/teamspeak/server_query_protocol'
 
 export type ServerQueryClientOptions = {
   host: string
@@ -10,73 +17,34 @@ export type ServerQueryClientOptions = {
   cacheTtlMs?: number
 }
 
-/**
- * Escapes a value for the TeamSpeak 3 ServerQuery protocol.
- * @see https://community.teamspeak.com/t/serverquery-manual
- */
-export function escapeServerQueryValue(value: string): string {
-  return value
-    .replaceAll('\\', '\\\\')
-    .replaceAll('/', '\\/')
-    .replaceAll(' ', '\\s')
-    .replaceAll('|', '\\p')
-    .replaceAll('\b', '\\b')
-    .replaceAll('\f', '\\f')
-    .replaceAll('\n', '\\n')
-    .replaceAll('\r', '\\r')
-    .replaceAll('\t', '\\t')
-    .replaceAll('\v', '\\v')
+export { escapeServerQueryValue }
+
+type SessionCommand = {
+  step: string
+  command: string
+  optional?: boolean
 }
 
-function unescapeServerQueryValue(value: string): string {
-  return value
-    .replaceAll('\\\\', '\\')
-    .replaceAll('\\/', '/')
-    .replaceAll('\\s', ' ')
-    .replaceAll('\\p', '|')
-    .replaceAll('\\b', '\b')
-    .replaceAll('\\f', '\f')
-    .replaceAll('\\n', '\n')
-    .replaceAll('\\r', '\r')
-    .replaceAll('\\t', '\t')
-    .replaceAll('\\v', '\v')
-}
-
-function parseErrorId(chunk: string): number | null {
-  const match = chunk.match(/error id=(\d+)/)
-  if (!match) {
-    return null
-  }
-  return Number(match[1])
-}
-
-function parseVersion(chunk: string): string | undefined {
-  const match = chunk.match(/(?:^|\s)version=([^\s]+)/)
-  if (!match) {
-    return undefined
-  }
-  return unescapeServerQueryValue(match[1])
-}
-
-type QueryStep =
-  | 'welcome'
-  | 'version'
-  | 'login'
-  | 'use'
-  | 'serveredit'
-  | 'done'
+const STATUS_AFTER_LOGIN: SessionCommand[] = [
+  { step: 'use', command: 'use sid=1' },
+  { step: 'serverinfo', command: 'serverinfo' },
+  { step: 'licenseinfo', command: 'licenseinfo', optional: true },
+  { step: 'channellist', command: 'channellist', optional: true },
+  { step: 'clientlist', command: 'clientlist', optional: true },
+]
 
 /**
  * Lightweight TeamSpeak 3 ServerQuery client (raw TCP on port 10011).
  */
 export class ServerQueryTeamSpeakGateway implements TeamSpeakGateway {
   private cached: { expiresAt: number; status: TeamSpeakStatus } | null = null
+  private inFlight: Promise<TeamSpeakStatus> | null = null
   private readonly timeoutMs: number
   private readonly cacheTtlMs: number
 
   constructor(private readonly options: ServerQueryClientOptions) {
-    this.timeoutMs = options.timeoutMs ?? 3000
-    this.cacheTtlMs = options.cacheTtlMs ?? 15_000
+    this.timeoutMs = options.timeoutMs ?? 5000
+    this.cacheTtlMs = options.cacheTtlMs ?? 30_000
   }
 
   async getStatus(): Promise<TeamSpeakStatus> {
@@ -85,10 +53,13 @@ export class ServerQueryTeamSpeakGateway implements TeamSpeakGateway {
       return this.cached.status
     }
 
-    const status = await this.probe()
-    const ttl = status.isActive ? this.cacheTtlMs : Math.min(2_000, this.cacheTtlMs)
-    this.cached = { expiresAt: now + ttl, status }
-    return status
+    if (!this.inFlight) {
+      this.inFlight = this.refreshStatus().finally(() => {
+        this.inFlight = null
+      })
+    }
+
+    return this.inFlight
   }
 
   /** Clears the in-memory status cache (tests / forced refresh). */
@@ -109,16 +80,25 @@ export class ServerQueryTeamSpeakGateway implements TeamSpeakGateway {
     })
   }
 
+  private async refreshStatus(): Promise<TeamSpeakStatus> {
+    const status = await this.probe()
+    this.cached = { expiresAt: Date.now() + this.cacheTtlMs, status }
+    return status
+  }
+
   private async probe(): Promise<TeamSpeakStatus> {
     try {
-      return await this.runSession({ afterLogin: [], requireLogin: false })
+      return await this.runSession({
+        afterLogin: STATUS_AFTER_LOGIN,
+        requireLogin: false,
+      })
     } catch {
       return { isActive: false }
     }
   }
 
   private runSession(config: {
-    afterLogin: Array<{ step: QueryStep; command: string }>
+    afterLogin: SessionCommand[]
     requireLogin: boolean
   }): Promise<TeamSpeakStatus> {
     const { host, port, username, password } = this.options
@@ -127,9 +107,11 @@ export class ServerQueryTeamSpeakGateway implements TeamSpeakGateway {
       const socket = net.createConnection({ host, port })
       let buffer = ''
       let settled = false
-      let step: QueryStep = 'welcome'
+      let step = 'welcome'
       let version: string | undefined
       let afterLoginIndex = 0
+      let currentCommand: SessionCommand | null = null
+      const payload: QueryStatusPayload = {}
 
       const finish = (error?: Error, status?: TeamSpeakStatus) => {
         if (settled) {
@@ -160,12 +142,18 @@ export class ServerQueryTeamSpeakGateway implements TeamSpeakGateway {
         finish(undefined, status)
       }
 
+      const finishFromPayload = () => {
+        payload.version = version
+        quitAndFinish(buildTeamSpeakStatus(payload))
+      }
+
       const advanceAfterLogin = () => {
         if (afterLoginIndex >= config.afterLogin.length) {
-          quitAndFinish({ isActive: true, version })
+          finishFromPayload()
           return
         }
         const next = config.afterLogin[afterLoginIndex++]
+        currentCommand = next
         step = next.step
         send(next.command)
       }
@@ -228,11 +216,34 @@ export class ServerQueryTeamSpeakGateway implements TeamSpeakGateway {
             return
           }
 
-          if (step === 'use' || step === 'serveredit') {
+          if (currentCommand && step === currentCommand.step) {
             if (errorId !== 0) {
-              finish(new Error(`TeamSpeak ServerQuery ${step} failed (error id=${errorId})`))
+              if (currentCommand.optional) {
+                if (step === 'licenseinfo') {
+                  payload.licenseinfoErrorId = errorId
+                }
+                advanceAfterLogin()
+                return
+              }
+              if (config.requireLogin) {
+                finish(new Error(`TeamSpeak ServerQuery ${step} failed (error id=${errorId})`))
+                return
+              }
+              finishFromPayload()
               return
             }
+
+            if (step === 'serverinfo') {
+              payload.serverinfoMessage = message
+            } else if (step === 'licenseinfo') {
+              payload.licenseinfoMessage = message
+              payload.licenseinfoErrorId = 0
+            } else if (step === 'channellist') {
+              payload.channellistMessage = message
+            } else if (step === 'clientlist') {
+              payload.clientlistMessage = message
+            }
+
             advanceAfterLogin()
             return
           }

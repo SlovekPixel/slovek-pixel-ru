@@ -138,7 +138,7 @@ footer {
   border: 1px solid var(--gray-3);
   border-radius: 8px;
   background: var(--gray-1);
-  max-width: 520px;
+  max-width: 640px;
 }
 .service-status p {
   font-size: 18px;
@@ -171,6 +171,58 @@ footer {
 .voice-host code {
   font-size: 15px;
   color: var(--gray-12);
+}
+.service-version.is-empty:empty {
+  display: none;
+}
+.status-metrics {
+  margin-top: 18px;
+  display: grid;
+  gap: 8px 0;
+}
+.status-metrics > div {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 8px 16px;
+  font-size: 16px;
+}
+.status-metrics dt {
+  color: var(--gray-6);
+  font-weight: 500;
+}
+.status-metrics dd {
+  color: var(--gray-12);
+}
+.status-online {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-3);
+}
+.status-online h2 {
+  margin-bottom: 10px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.online-list {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+.online-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 16px;
+}
+.online-nick {
+  color: var(--gray-12);
+  font-weight: 500;
+}
+.online-channel {
+  color: var(--gray-6);
+}
+.online-empty {
+  color: var(--gray-6);
 }
 
 .cards {

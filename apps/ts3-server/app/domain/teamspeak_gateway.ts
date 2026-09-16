@@ -1,6 +1,20 @@
+export type OnlineClient = {
+  nickname: string
+  channelName: string
+}
+
 export type TeamSpeakStatus = {
   isActive: boolean
   version?: string
+  serverName?: string
+  uptimeSeconds?: number
+  licenseLabel?: string
+  clientsOnline?: number
+  clientsMax?: number
+  channels?: number
+  pingMs?: number
+  packetLossPct?: number
+  onlineClients?: OnlineClient[]
 }
 
 /** Fixed ServerQuery port (not configurable via env). */
