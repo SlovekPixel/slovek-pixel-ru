@@ -28,7 +28,11 @@ function closeServer(server: net.Server) {
 
 function attachQueryProtocol(
   socket: net.Socket,
-  options: { versionOk?: boolean; loginOk?: boolean } = {}
+  options: {
+    versionOk?: boolean
+    loginOk?: boolean
+    onCommand?: (command: string) => void
+  } = {}
 ) {
   const versionOk = options.versionOk ?? true
   const loginOk = options.loginOk ?? true
@@ -38,26 +42,39 @@ function attachQueryProtocol(
   let buffer = ''
   socket.on('data', (chunk) => {
     buffer += chunk
-    if (buffer.includes('version')) {
-      buffer = ''
-      if (versionOk) {
-        socket.write('version=3.13.8 platform=Linux\n\rerror id=0 msg=ok\n\r')
-      } else {
-        socket.write('error id=256 msg=command\\snot\\sfound\n\r')
+    const lines = buffer.split(/\n/)
+    buffer = lines.pop() ?? ''
+
+    for (const line of lines) {
+      const command = line.trim()
+      if (!command) {
+        continue
       }
-      return
-    }
-    if (buffer.includes('login ')) {
-      buffer = ''
-      if (loginOk) {
+      options.onCommand?.(command)
+
+      if (command === 'version') {
+        if (versionOk) {
+          socket.write('version=3.13.8 platform=Linux\n\rerror id=0 msg=ok\n\r')
+        } else {
+          socket.write('error id=256 msg=command\\snot\\sfound\n\r')
+        }
+        continue
+      }
+      if (command.startsWith('login ')) {
+        if (loginOk) {
+          socket.write('error id=0 msg=ok\n\r')
+        } else {
+          socket.write('error id=520 msg=invalid\\sloginname\\sor\\spassword\n\r')
+        }
+        continue
+      }
+      if (command.startsWith('use ') || command.startsWith('serveredit ')) {
         socket.write('error id=0 msg=ok\n\r')
-      } else {
-        socket.write('error id=520 msg=invalid\\sloginname\\sor\\spassword\n\r')
+        continue
       }
-      return
-    }
-    if (buffer.includes('quit')) {
-      socket.end()
+      if (command === 'quit') {
+        socket.end()
+      }
     }
   })
 }
@@ -174,6 +191,36 @@ test.group('ServerQueryTeamSpeakGateway', () => {
       assert.isTrue(first.isActive)
       assert.isTrue(second.isActive)
       assert.equal(connections, 1)
+    } finally {
+      await closeServer(server)
+    }
+  })
+
+  test('sets virtualserver_password via ServerQuery', async ({ assert }) => {
+    const commands: string[] = []
+    const password = '1122'
+    const { server, port } = await startMockServer((socket) => {
+      attachQueryProtocol(socket, {
+        onCommand: (command) => commands.push(command),
+      })
+    })
+
+    try {
+      const gateway = new ServerQueryTeamSpeakGateway({
+        host: '127.0.0.1',
+        port,
+        username: 'serveradmin',
+        password,
+        timeoutMs: 1000,
+        cacheTtlMs: 0,
+      })
+
+      await gateway.ensureVoicePassword()
+      assert.include(commands, 'use sid=1')
+      assert.include(
+        commands,
+        `serveredit virtualserver_password=${escapeServerQueryValue(password)}`
+      )
     } finally {
       await closeServer(server)
     }

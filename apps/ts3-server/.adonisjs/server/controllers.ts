@@ -5,7 +5,4 @@
 
 export const controllers = {
   Home: () => import('#presentation/http/controllers/home_controller'),
-  IpBan: () => import('#presentation/http/controllers/ip_ban_controller'),
-  LoginLog: () => import('#presentation/http/controllers/login_log_controller'),
-  Session: () => import('#presentation/http/controllers/session_controller'),
 }

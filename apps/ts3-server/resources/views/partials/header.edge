@@ -16,19 +16,5 @@
         </svg>
       @end
     </div>
-    <div>
-      <nav>
-        @if(auth && auth.user)
-          @!link({ route: 'login.logging', text: 'Login logs' })
-          @!link({ route: 'login.unban', text: 'Unban IPs' })
-          <span class="nav-user">{{ auth.user.username }}</span>
-          @form({ route: 'session.destroy', method: 'POST' })
-            @!button({ text: 'Logout' })
-          @end
-        @else
-          @!link({ route: 'session.create', text: 'Login' })
-        @end
-      </nav>
-    </div>
   </div>
 </header>

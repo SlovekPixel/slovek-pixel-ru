@@ -3,15 +3,12 @@
 | Environment variables service
 |--------------------------------------------------------------------------
 |
-| The `Env.create` method creates an instance of the Env service. The
-| service validates the environment variables and also cast values
-| to JavaScript data types.
-|
+| Loads from the monorepo root (not apps/ts3-server).
 */
 
 import { Env } from '@adonisjs/core/env'
 
-export default await Env.create(new URL('../', import.meta.url), {
+export default await Env.create(new URL('../../..', import.meta.url), {
   // Node
   NODE_ENV: Env.schema.enum(['development', 'production', 'test'] as const),
   PORT: Env.schema.number(),
@@ -22,15 +19,11 @@ export default await Env.create(new URL('../', import.meta.url), {
   APP_KEY: Env.schema.secret(),
   APP_URL: Env.schema.string({ format: 'url', tld: false }),
 
-  // Session
-  SESSION_DRIVER: Env.schema.enum(['cookie', 'memory', 'database'] as const),
-
   // Public hostname (same domain for site HTTPS and TeamSpeak voice)
   DOMAIN: Env.schema.string(),
 
-  // TeamSpeak 3 ServerQuery
+  // TeamSpeak 3 ServerQuery (port 10011 is fixed in code)
   TS3_QUERY_HOST: Env.schema.string({ format: 'host' }),
-  TS3_QUERY_PORT: Env.schema.number(),
   TS3_QUERY_USER: Env.schema.string(),
-  TS3_QUERY_PASSWORD: Env.schema.string(),
+  TS3_PASSWORD: Env.schema.string(),
 })

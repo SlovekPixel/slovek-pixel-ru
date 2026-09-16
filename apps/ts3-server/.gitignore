@@ -5,12 +5,6 @@ build
 tmp/*
 !tmp/.gitkeep
 
-.env
-.env.local
-.env.*.local
-!.env.example
-!.env.test
-
 public/assets
 
 # Keep Adonis generated barrels/types — required for #generated/* and CI builds

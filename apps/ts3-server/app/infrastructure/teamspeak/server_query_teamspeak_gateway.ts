@@ -58,12 +58,16 @@ function parseVersion(chunk: string): string | undefined {
   return unescapeServerQueryValue(match[1])
 }
 
+type QueryStep =
+  | 'welcome'
+  | 'version'
+  | 'login'
+  | 'use'
+  | 'serveredit'
+  | 'done'
+
 /**
  * Lightweight TeamSpeak 3 ServerQuery client (raw TCP on port 10011).
- *
- * First step (liveness): welcome → version → quit.
- * Then verifies ServerQuery credentials: login → quit (does not fail liveness if
- * password is wrong; credentials are kept for later management features).
  */
 export class ServerQueryTeamSpeakGateway implements TeamSpeakGateway {
   private cached: { expiresAt: number; status: TeamSpeakStatus } | null = null
@@ -92,23 +96,40 @@ export class ServerQueryTeamSpeakGateway implements TeamSpeakGateway {
     this.cached = null
   }
 
+  async ensureVoicePassword(): Promise<void> {
+    await this.runSession({
+      afterLogin: [
+        { step: 'use', command: 'use sid=1' },
+        {
+          step: 'serveredit',
+          command: `serveredit virtualserver_password=${escapeServerQueryValue(this.options.password)}`,
+        },
+      ],
+      requireLogin: true,
+    })
+  }
+
   private async probe(): Promise<TeamSpeakStatus> {
     try {
-      return await this.runQuery()
+      return await this.runSession({ afterLogin: [], requireLogin: false })
     } catch {
       return { isActive: false }
     }
   }
 
-  private runQuery(): Promise<TeamSpeakStatus> {
+  private runSession(config: {
+    afterLogin: Array<{ step: QueryStep; command: string }>
+    requireLogin: boolean
+  }): Promise<TeamSpeakStatus> {
     const { host, port, username, password } = this.options
 
     return new Promise((resolve, reject) => {
       const socket = net.createConnection({ host, port })
       let buffer = ''
       let settled = false
-      let step: 'welcome' | 'version' | 'login' | 'done' = 'welcome'
+      let step: QueryStep = 'welcome'
       let version: string | undefined
+      let afterLoginIndex = 0
 
       const finish = (error?: Error, status?: TeamSpeakStatus) => {
         if (settled) {
@@ -131,6 +152,22 @@ export class ServerQueryTeamSpeakGateway implements TeamSpeakGateway {
 
       const send = (command: string) => {
         socket.write(`${command}\n`)
+      }
+
+      const quitAndFinish = (status: TeamSpeakStatus) => {
+        step = 'done'
+        send('quit')
+        finish(undefined, status)
+      }
+
+      const advanceAfterLogin = () => {
+        if (afterLoginIndex >= config.afterLogin.length) {
+          quitAndFinish({ isActive: true, version })
+          return
+        }
+        const next = config.afterLogin[afterLoginIndex++]
+        step = next.step
+        send(next.command)
       }
 
       socket.setEncoding('utf8')
@@ -170,7 +207,6 @@ export class ServerQueryTeamSpeakGateway implements TeamSpeakGateway {
               return
             }
             version = parseVersion(message)
-            // Optional credential check for future management; liveness already proven.
             step = 'login'
             send(
               `login client_login_name=${escapeServerQueryValue(username)} client_login_password=${escapeServerQueryValue(password)}`
@@ -179,10 +215,25 @@ export class ServerQueryTeamSpeakGateway implements TeamSpeakGateway {
           }
 
           if (step === 'login') {
-            step = 'done'
-            send('quit')
-            // Server is active if version succeeded, even when login credentials are wrong.
-            finish(undefined, { isActive: true, version })
+            if (errorId !== 0) {
+              if (config.requireLogin) {
+                finish(new Error(`TeamSpeak ServerQuery login failed (error id=${errorId})`))
+                return
+              }
+              // Liveness already proven by version; wrong credentials do not fail status.
+              quitAndFinish({ isActive: true, version })
+              return
+            }
+            advanceAfterLogin()
+            return
+          }
+
+          if (step === 'use' || step === 'serveredit') {
+            if (errorId !== 0) {
+              finish(new Error(`TeamSpeak ServerQuery ${step} failed (error id=${errorId})`))
+              return
+            }
+            advanceAfterLogin()
             return
           }
 

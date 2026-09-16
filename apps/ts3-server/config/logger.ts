@@ -26,7 +26,7 @@ const loggerConfig = defineConfig({
        * Logger name that appears in log entries.
        * Useful for identifying the source of logs.
        */
-      name: env.get('APP_NAME'),
+      name: 'ts3-server',
 
       /**
        * Minimum log level to record.

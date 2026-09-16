@@ -1,5 +1,5 @@
 services:
-  web:
+  teamspeak-web:
     build:
       context: .
       dockerfile: apps/ts3-server/Dockerfile
@@ -9,20 +9,16 @@ services:
       - "3333"
     environment:
       TZ: UTC
-      NODE_ENV: ${NODE_ENV:-production}
-      HOST: ${HOST:-0.0.0.0}
-      PORT: ${PORT:-3333}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3333
+      LOG_LEVEL: info
       APP_KEY: ${APP_KEY:?Set APP_KEY in .env}
       APP_URL: ${APP_URL:-https://ts.slovekpixel.ru}
       DOMAIN: ${DOMAIN:-ts.slovekpixel.ru}
-      SESSION_DRIVER: ${SESSION_DRIVER:-cookie}
-      TS3_QUERY_HOST: ${TS3_QUERY_HOST:-teamspeak}
-      TS3_QUERY_PORT: ${TS3_QUERY_PORT:-10011}
+      TS3_QUERY_HOST: teamspeak
       TS3_QUERY_USER: ${TS3_QUERY_USER:-serveradmin}
-      TS3_QUERY_PASSWORD: ${TS3_QUERY_PASSWORD:?Set TS3_QUERY_PASSWORD in .env}
-    volumes:
-      - web-tmp:/app/tmp
+      TS3_PASSWORD: ${TS3_PASSWORD:?Set TS3_PASSWORD in .env}
     depends_on:
       - teamspeak
 
@@ -31,23 +27,16 @@ services:
     container_name: ts3-voice
     restart: unless-stopped
     ports:
-      - "9987:9987/udp" # voice (client: ts.slovekpixel.ru:9987)
+      - "9987:9987/udp" # voice
       - "30033:30033" # file transfer
       - "127.0.0.1:10011:10011" # ServerQuery (localhost only)
     environment:
-      TS3SERVER_LICENSE: ${TS3SERVER_LICENSE:-accept}
-      TS3SERVER_QUERY_PROTOCOLS: ${TS3SERVER_QUERY_PROTOCOLS:-raw}
-      # Optional (see .env.example):
-      # TS3SERVER_LICENSEPATH: ${TS3SERVER_LICENSEPATH:-/var/ts3server}
-      # TS3SERVER_QUERY_TIMEOUT: ${TS3SERVER_QUERY_TIMEOUT:-300}
-      # TS3SERVER_LOG_QUERY_COMMANDS: ${TS3SERVER_LOG_QUERY_COMMANDS:-0}
-      # TS3SERVER_LOG_APPEND: ${TS3SERVER_LOG_APPEND:-0}
-      # TS3SERVER_DB_CLIENTKEEPDAYS: ${TS3SERVER_DB_CLIENTKEEPDAYS:-30}
-      # TS3SERVER_IP_WHITELIST / BLACKLIST — put files into the teamspeak-data volume
+      TS3SERVER_LICENSE: accept
+      TS3SERVER_QUERY_PROTOCOLS: raw
     # serveradmin_password applies on first init of the data volume
     command:
       - ts3server
-      - serveradmin_password=${TS3_SERVERADMIN_PASSWORD:?Set TS3_SERVERADMIN_PASSWORD in .env}
+      - serveradmin_password=${TS3_PASSWORD:?Set TS3_PASSWORD in .env}
     volumes:
       - teamspeak-data:/var/ts3server
 
@@ -68,7 +57,7 @@ services:
       - certbot-etc:/etc/letsencrypt
       - certbot-www:/var/www/certbot
     depends_on:
-      - web
+      - teamspeak-web
 
   certbot:
     image: certbot/certbot:v3.1.0
@@ -81,7 +70,6 @@ services:
       - certbot
 
 volumes:
-  web-tmp:
   teamspeak-data:
   certbot-etc:
   certbot-www:

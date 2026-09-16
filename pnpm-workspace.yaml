@@ -2,12 +2,10 @@ packages:
   - "apps/*"
   - "packages/*"
 
+# Shield lists session as a peer; session lists lucid. We disable CSRF and do not
+# use sessions/DB, so skip auto-installing those optional peers.
+autoInstallPeers: false
+
 allowBuilds:
   "@swc/core": true
-  better-sqlite3: true
   esbuild: true
-
-onlyBuiltDependencies:
-  - "@swc/core"
-  - better-sqlite3
-  - esbuild
