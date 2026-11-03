@@ -1,40 +1,11 @@
-# Dependencies
 node_modules
-.pnp
-.pnp.js
 
-# Secrets and local env (keep *.example and .env.test)
+# Secrets and local env
 .env
 .env.*
 !.env.example
-!.env.test
-!.env.*.example
 
-# Turbo / caches
-.turbo
-.vercel
-.cache
-*.tsbuildinfo
-
-# Build outputs
-build
-dist
-.next
-out
-apps/*/public/assets
-apps/*/tmp/*
-!apps/*/tmp/.gitkeep
-
-# Runtime / DB dumps
-*.sqlite
-*.sqlite3
-*.db
-
-# Logs / debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
+# Logs
 *.log
 
 # Editors / OS
@@ -46,12 +17,3 @@ Thumbs.db
 *.pem
 *.swp
 *~
-
-# Nested lockfiles inside apps (use root pnpm-lock.yaml)
-apps/*/pnpm-lock.yaml
-apps/*/pnpm-workspace.yaml
-
-# Test / coverage
-coverage
-playwright-report
-test-results

@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  lint-and-types:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,11 +19,7 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: Check types
-        run: pnpm check-types
+      - name: Types + formatting
+        run: pnpm check

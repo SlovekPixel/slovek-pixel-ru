@@ -2,18 +2,22 @@
   "name": "slovek-pixel-ru",
   "private": true,
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types",
+    "dev": "node --watch-path=apps/ts3-server --env-file-if-exists=.env apps/ts3-server/src/server.ts",
+    "check": "tsc -p apps/ts3-server && prettier --check apps",
+    "format": "prettier --write apps",
     "prepare": "husky"
   },
   "devDependencies": {
+    "@types/node": "26.4.1",
     "husky": "^9.1.7",
     "prettier": "3.9.6",
-    "turbo": "^2.10.13",
     "typescript": "7.0.2"
+  },
+  "prettier": {
+    "semi": false,
+    "singleQuote": true,
+    "printWidth": 100,
+    "trailingComma": "es5"
   },
   "packageManager": "pnpm@11.25.0",
   "engines": {

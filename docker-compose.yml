@@ -1,21 +1,12 @@
 services:
   teamspeak-web:
-    build:
-      context: .
-      dockerfile: apps/ts3-server/Dockerfile
+    build: ./apps/ts3-server
     container_name: ts3-web
     restart: unless-stopped
     expose:
       - "3333"
     environment:
-      TZ: UTC
-      NODE_ENV: production
-      HOST: 0.0.0.0
-      PORT: 3333
-      LOG_LEVEL: info
-      APP_KEY: ${APP_KEY:?Set APP_KEY in .env}
-      APP_URL: ${APP_URL:-https://ts.slovekpixel.ru}
-      DOMAIN: ${DOMAIN:-ts.slovekpixel.ru}
+      DOMAIN: ${DOMAIN:-ts3.slovekpixel.ru}
       TS3_QUERY_HOST: teamspeak
       TS3_QUERY_USER: ${TS3_QUERY_USER:-serveradmin}
       TS3_PASSWORD: ${TS3_PASSWORD:?Set TS3_PASSWORD in .env}
@@ -50,24 +41,30 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      DOMAIN: ${DOMAIN:-ts.slovekpixel.ru}
+      DOMAIN: ${DOMAIN:-ts3.slovekpixel.ru}
     volumes:
       - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./deploy/nginx/site.conf.template:/etc/nginx/site.conf.template:ro
       - certbot-etc:/etc/letsencrypt
       - certbot-www:/var/www/certbot
     depends_on:
       - teamspeak-web
 
+  # Gets and renews the HTTPS certificate on its own (deploy/certbot/run.sh)
   certbot:
     image: certbot/certbot:v3.1.0
     container_name: certbot
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/run.sh"]
+    environment:
+      DOMAIN: ${DOMAIN:-ts3.slovekpixel.ru}
+      CERTBOT_EMAIL: ${CERTBOT_EMAIL:-}
     volumes:
+      - ./deploy/certbot/run.sh:/run.sh:ro
       - certbot-etc:/etc/letsencrypt
       - certbot-www:/var/www/certbot
-    # One-shot by default; use deploy/certbot/init-certs.sh and renew.sh
-    profiles:
-      - certbot
+    depends_on:
+      - nginx
 
 volumes:
   teamspeak-data:

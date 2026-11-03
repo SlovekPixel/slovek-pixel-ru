@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TS3 Server</title>
+    <link rel="stylesheet" href="/app.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <div><a href="/">TS3 Server</a></div>
+    </header>
+    <main>
+      <div class="hero">
+        <h1>Homepage</h1>
+
+        <div class="service-status" data-status-root>
+          <p class="service-line">
+            Linux TeamSpeak service:
+            <strong data-field="activeLabel">…</strong>
+            <span class="service-version" data-field="version"></span>
+          </p>
+          <p class="voice-host">Voice server: <code data-field="voiceHost">…</code> (UDP 9987)</p>
+
+          <dl class="status-metrics">
+            <div>
+              <dt>Name</dt>
+              <dd data-field="serverName">—</dd>
+            </div>
+            <div>
+              <dt>Uptime</dt>
+              <dd data-field="uptimeLabel">—</dd>
+            </div>
+            <div>
+              <dt>License</dt>
+              <dd data-field="licenseLabel">—</dd>
+            </div>
+            <div>
+              <dt>Clients</dt>
+              <dd data-field="clientsLabel">—</dd>
+            </div>
+            <div>
+              <dt>Channels</dt>
+              <dd data-field="channelsLabel">—</dd>
+            </div>
+            <div>
+              <dt>Average ping</dt>
+              <dd data-field="pingLabel">—</dd>
+            </div>
+            <div>
+              <dt>Packet loss</dt>
+              <dd data-field="packetLossLabel">—</dd>
+            </div>
+          </dl>
+
+          <div class="status-online">
+            <h2>Online</h2>
+            <ul class="online-list" data-field="onlineClients">
+              <li class="online-empty">—</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

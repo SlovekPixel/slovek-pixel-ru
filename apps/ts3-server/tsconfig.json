@@ -1,7 +1,15 @@
 {
-  "extends": "@adonisjs/tsconfig/tsconfig.app.json",
+  // Type-check only: Node runs src/*.ts directly (type stripping), so no build step.
   "compilerOptions": {
-    "rootDir": "./",
-    "outDir": "./build"
-  }
+    "target": "esnext",
+    "module": "nodenext",
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["src"]
 }
